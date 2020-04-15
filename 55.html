@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Tehtävä 55</title>
+    <link rel="stylesheet" href="./jquery-ui-1.12.1.custom/jquery-ui.css" />
+    <script src="./jquery-3.4.1.min.js"></script>
+    <script src="./jquery-ui-1.12.1.custom/jquery-ui.js"></script>
+    <style>
+        table {
+            width: fit-content;
+            border: 1px solid black;
+        }
+
+        th,
+        td {
+            padding: 1em;
+        }
+
+        #divHaku table {
+            border-color: darkgray;
+            width: fit-content;
+        }
+
+        #divTulos tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+    <script>
+        $(document).ready(function () {
+            function poistaAsiakas(avain) {
+                poistoUrl = "http://localhost:3002/Asiakas/" + avain;
+                $.ajax({
+                    url: poistoUrl,
+                    type: 'DELETE'
+                });
+                fetch();
+            }
+            $("#tblTulos").hide();
+            let atyUrl = "http://localhost:3002/Types"
+            var selite;
+            var avain;
+
+            function haeAsiakasTyypit(ele, aty) {
+                $.get(atyUrl, function (data, status) {
+                    $(ele).html("<option value='0'></option>")
+                    for (x of data) {
+                        selite = x.Selite;
+                        avain = x.Avain;
+                        if (aty == avain) {
+                            $(ele).append("<option value=" + aty + " selected>" + selite +
+                                "</option>")
+                        } else {
+
+                            $(ele).append("<option value=" + avain + ">" + selite +
+                                "</option>")
+                        }
+                    }
+                });
+            }
+            haeAsiakasTyypit("#selAsiakastyyppi");
+            document.addEventListener('click', function (event) {
+                if (event.target.matches("#btnLisaaAsiakas")) {
+                    lomake(-1, "add")
+                }
+
+                if (event.target.matches('.btnPoista')) {
+                    poistaAsiakas(event.target.id);
+                }
+                if (event.target.matches('.btnMuokkaa')) {
+                    lomake(event.target.id, "edit")
+                }
+                event.preventDefault();
+            }, false);
+            $("#btnHae").click(function () {
+                $("#tblTulos").empty();
+                fetch();
+            });
+            function fetch() {
+                avain = $("#selAsiakastyyppi").val();
+                $("#tblTulos").empty();
+                let hakuUrl = "http://localhost:3002/Asiakas";
+                let hakuNimi = $("#inNimi").val();
+                let hakuOsoite = $("#inOsoite").val();
+                let query = "?";
+                if ($("#selAsiakastyyppi").val() == "") {
+                    query += "NIMI=" + hakuNimi + "&OSOITE=" + hakuOsoite;
+                } else {
+                    query = "?NIMI=" + hakuNimi + "&OSOITE=" + hakuOsoite + "&ASTY_AVAIN=" + avain;
+                }
+                console.log(query);
+                $.get(hakuUrl + query, function (data, status) {
+                    if (status == "success") {
+                        $("#tblTulos").show();
+                        let hakuOsoite;
+                        let headerStr =
+                            "<tr><th>Id</th><th>Nimi</th><th>Osoite</th><th>Postinumero</th><th>Postitoimipaikka</th><th>Luontipäivämäärä</th><th>Asiakastyyppi</th></tr>"
+                        $("#tblTulos").append(headerStr)
+                        for (x of data) {
+                            let avain = x.AVAIN;
+                            let nimi = x.NIMI;
+                            let osoite = x.OSOITE;
+                            let postinro = x.POSTINRO;
+                            let postitmp = x.POSTITMP;
+                            let luontipvm = new Date(x.LUONTIPVM);
+                            luontipvm = luontipvm.getFullYear() + "-" + (luontipvm.getMonth() + 1) +
+                                "-" + luontipvm.getDate()
+                            let asty_avain = x.ASTY_AVAIN;
+                            let tulosStr = "<tr><td>" + avain + "</td><td>" + nimi + "</td><td>" +
+                                osoite +
+                                "</td><td>" + postinro + "</td><td>" + postitmp + "</td><td>" +
+                                luontipvm + "</td><td>" + asty_avain +
+                                "</td><td><button class=\"btnPoista\" id=\"" + avain +
+                                "\">Poista</button></td>" +
+                                "</td><td><button class=\"btnMuokkaa\" id=\"" + avain +
+                                "\">Muokkaa</button></td></tr>"
+                            $("#tblTulos").append(tulosStr);
+                        }
+                    } else {
+                        alert("Haku ei onnistunut.")
+                    }
+                });
+            };
+            lomake(-1, "none");
+            function lomake(id, action) {
+                let dialog;
+                let form;
+                if (action == "none") {
+                    dialog = $("#divLisaa").dialog({
+                        autoOpen: false,
+                    });
+                }
+                if (action == "add") {
+                    dialog = $("#divLisaa").dialog({
+                        autoOpen: false,
+                        height: 500,
+                        width: 350,
+                        modal: true,
+                        buttons: {
+                            "OK": function () {
+                                let lisaaStr = $("form").serializeArray();
+                                $.post("http://localhost:3002/Asiakas", lisaaStr, function (data,
+                                    status) {
+                                    if (data.status == 400) {
+                                        alert(data.error)
+                                    } else {
+                                        dialog.dialog("close");
+                                        fetch();
+                                    }
+                                })
+                            },
+                            Peruuta: function () {
+                                dialog.dialog("close");
+                            }
+                        },
+                        close: function () {
+                            form[0].reset();
+                        }
+                    });
+                    haeAsiakasTyypit("#selLisaaAsiakastyyppi");
+                    dialog.dialog("open");
+                }
+                if (action == "edit") {
+                    dialog = $("#divLisaa").dialog({
+                        autoOpen: false,
+                        height: 500,
+                        width: 350,
+                        modal: true,
+                        buttons: {
+                            "OK": function () {
+                                let editStr = $("form").serializeArray();
+                                editUrl = "http://localhost:3002/Asiakas/" + id;
+                                $.ajax({
+                                    url: editUrl,
+                                    type: 'PUT',
+                                    data: editStr
+                                });
+                                dialog.dialog("close");
+                                fetch();
+                            },
+                            Peruuta: function () {
+                                dialog.dialog("close");
+                            }
+                        },
+                        close: function () {
+                            form[0].reset();
+                        }
+                    });
+                    dialog.dialog("open");
+                    let hakuUrl = "http://localhost:3002/Asiakas/?AVAIN=" + id;
+                    $.get(hakuUrl, function (data, status) {
+                        if (status == "success") {
+                            let aty;
+                            for (x of data) {
+                                $("#inLisaaNimi").val(x.NIMI)
+                                $("#inLisaaOsoite").val(x.OSOITE)
+                                $("#inLisaaPostinumero").val(x.POSTINRO)
+                                $("#inLisaaPostitoimipaikka").val(x.POSTITMP)
+                                aty = x.ASTY_AVAIN
+                            }
+                            haeAsiakasTyypit("#selLisaaAsiakastyyppi", aty);
+                        } else {
+                            alert("Haku ei onnistunut.")
+                        }
+                    });
+                }
+                form = dialog.find("form").on("submit", function (event) {
+                    event.preventDefault();
+                });
+            }
+        })
+    </script>
+</head>
+
+<body>
+    <div id="divLisaa">
+        <form id="frmLisaa">
+            <fieldset>
+                Nimi:<br>
+                <input id="inLisaaNimi" type="text" name="NIMI"><br><br>
+                Osoite:<br>
+                <input id="inLisaaOsoite" type="text" name="OSOITE"><br><br>
+                Postinumero:<br>
+                <input id="inLisaaPostinumero" type="text" name="POSTINRO"><br><br>
+                Postitoimipaikka:<br>
+                <input id="inLisaaPostitoimipaikka" type="text" name="POSTITMP"><br><br>
+                Asiakastyyppi:<br>
+                <select id="selLisaaAsiakastyyppi" name="ASTY_AVAIN">
+                </select>
+            </fieldset>
+        </form>
+    </div>
+
+    <div id="divHaku">
+        <table id="tblHaku">
+            <tr>
+                <td>
+                    Nimi:
+                </td>
+                <td>
+                    <input type="text" id="inNimi" name="inNimi" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Osoite:
+                </td>
+                <td>
+                    <input type="text" id="inOsoite" name="inOsoite" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Asiakastyyppi:
+                </td>
+                <td>
+                    <select id="selAsiakastyyppi">
+                        <option value="0"></option>
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <button id="btnHae" class="napit">Hae</button>
+                    <button id="btnLisaaAsiakas" class="napit">Lisää</button>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div id="divTulos">
+        <p>
+            <table id="tblTulos">
+
+            </table>
+        </p>
+    </div>
+
+</body>
+
+</html>
